@@ -169,7 +169,7 @@ protected:
 
         // Initialize q values (either from file or defined by range and step)
         // From file:
-        float fact = options("-q_fact","1.0").as_float();
+        float fact = options("q_fact","1.0").as_float();
         string file_q_xray_str = options("q_xray_file","").as_string();
         if (file_q_xray_str.size()>0){
             std::fstream file_q_xray(file_q_xray_str, std::ios_base::in);
