@@ -7,7 +7,7 @@
 cmake_minimum_required(VERSION 3.1)
 
 project(ff_calc)
-SET(CMAKE_BUILD_TYPE Debug)
+SET(CMAKE_BUILD_TYPE Release)
 
 #Sets optmization in Release build
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
