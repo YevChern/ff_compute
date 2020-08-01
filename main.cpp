@@ -65,7 +65,7 @@ double getWaterXrayStrength(std::string name, float q, std::map<char, vector<dou
         double fi = getXrayStrength("O", q, map) * (1.0 + alpha_O*exp(-q*q/(2*delta*delta)));
         return fi;
     } else {
-        throw pteros::Pteros_error("getWaterXrayStrength got the 'name' != 'O' or 'H'");
+        throw pteros::Pteros_error("getWaterXrayStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
     }
 }
 
@@ -96,7 +96,7 @@ double getWaterNeutronStrength(std::string name, float deut, std::map<char, doub
         double fi = getNeutronStrength("O", map);
         return fi;
     } else {
-        throw pteros::Pteros_error("getWaterNeutronStrength got the 'name' != 'O' or 'H'");
+        throw pteros::Pteros_error("getWaterNeutronStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
     }
 }
 
@@ -105,11 +105,35 @@ TASK_PARALLEL(FF_compute)
 public:
     string help() override {
         return  "Purpose:\n"
-                "\tPut purpose of your plugin here\n"
-                "Output:\n"
-                "\tDescription of its output\n"
-                "Options:\n"
-                "\tAny options";
+                "\tThis program calculates X-ray and neutron scattering form factors for lipid bilayers.\n"
+                "Options:\n\n"
+                "    -cutoff <nm>\n"
+                "\tOnly atoms within this distance form the bilayer COM would be considered.\n"
+                "    -w_dens <1/nm^3>\n"
+                "\tAverage number density of water.\n"
+                "    -w_dens_sqr <1/nm^6>\n"
+                "\tAverage of water number density squared.\n"
+                "    -water_ind <file>\n"
+                "\tFile with water atoms indices (starting with 0).\n"
+                "    -orig_ind <file>\n"
+                "\tFile with bilayer atoms indices (starting with 0). Used for the bilayer COM calculation.\n"
+                "    -ions_ind <file>    (optional)\n"
+                "\tFile with ions indices (starting with 0).\n"
+                "    -charges <file>     (optional)\n"
+                "\tFile with partial charges. Should contain same number of inputs as atoms in the system. If not provided\n"
+                "\tall partial charges are considered to be zero.\n"
+                "    -exch_h <file>      (optional)\n"
+                "\tFile with exchangeable hydrogens indices (starting with 0).\n"
+                "    -q_xray_file <file>\n"
+                "    -q_neutron_file <file>\n"
+                "\tFile with X-ray and neutron q values.\n"
+                "    -q_start <1/nm>  default: 0.0\n"
+                "    -q_finish <1/nm> default: 1.0\n"
+                "    -q_step <1/nm>   default: 0.01\n"
+                "\tAlternatively, range of q values at which form factors will be calculated can be defined with q_start, \n"
+                "\tq_finish and q_step. These options are overridden with the values provided in q_xray_file or q_neutron_file files.\n"
+                "    -out_pref <string>\n"
+                "\tOptional prefix for the output file names.";
     }
 protected:
     void before_spawn() override {
@@ -121,6 +145,7 @@ protected:
 
         // Get particle indices for water, origin, ions
         std::fstream file_water(options("water_ind").as_string(), std::ios_base::in);
+        if (options("water_ind").as_string().size()==0) log->info("Warning: no water indices provided.");
         int buf = 0;
         while (file_water >> buf){
             particles_water.push_back(buf);
@@ -128,6 +153,7 @@ protected:
         file_water.close();
 
         std::fstream file_origin(options("orig_ind").as_string(), std::ios_base::in);
+        if (options("orig_ind").as_string().size()==0) throw pteros::Pteros_error("Error: No file with indices for the bilayer COM provided!");
         while (file_origin >> buf){
             particles_for_origin.push_back(buf);
         }
@@ -140,6 +166,7 @@ protected:
                 particles_ion.push_back(buf);
             }
             file_ions.close();
+            log->info("There are " + to_string(particles_ion.size()) + " ions in the system.");
         }
 
         // Get charges
@@ -152,6 +179,7 @@ protected:
             }
             file_charges.close();
         } else {
+            log->info("No charges provided. Assuming all partial charges are zero.");
             for (int i=0; i<system.select_all().size(); ++i){
                 charge.push_back(0.0);
             }
@@ -165,28 +193,54 @@ protected:
                 particles_exch_h.push_back(buf);
             }
             file_exch_h.close();
+            log->info("There are " + to_string(particles_exch_h.size()) + " exchangeable hydrogens in the system.");
         }
 
         // Initialize q values (either from file or defined by range and step)
         // From file:
-        float fact = options("q_fact","1.0").as_float();
+        float fact = options("q_fact","1.0").as_float();                     // q multiplier that can be used to convert from 1/A to 1/nm or other
+        float q_start = options("q_start", "0.0").as_float();                // Parameters that are used to generate q range if no q-file provided
+        float q_finish = options("q_finish", "1.0").as_float();
+        float q_step = options("q_step", "0.01").as_float();
+        if ((q_finish - q_start)<0.0 || q_step<0.0) {
+            throw pteros::Pteros_error("Invalid values for the q range generation!");
+        }
+
         string file_q_xray_str = options("q_xray_file","").as_string();
         if (file_q_xray_str.size()>0){
+            log->info("Reading X-ray q's file...");
             std::fstream file_q_xray(file_q_xray_str, std::ios_base::in);
             float q_xray_buf = 0.0;
             while (file_q_xray >> q_xray_buf){
                 qs_xray.push_back(q_xray_buf*fact);
             }
             file_q_xray.close();
+            log->info("Finished reading X-ray q's file. There are " + to_string(qs_xray.size()) + " X-ray q points for FF calculation.");
+        } else {
+            log->info("No X-ray q's file provided. Generating q-range for FF calculation...");
+            log->info("First q=" + to_string(q_start) + ", last q=" + to_string(q_finish) +", q step=" + to_string(q_step));
+            for (int i=0; i<int((q_finish-q_start)/q_step); ++i) {
+                qs_xray.push_back(q_start+q_step*i);
+            }
+            log->info("X-ray q points generated. There are " + to_string(qs_xray.size()) + " q points.");
         }
         string file_q_neutron_str = options("q_neutron_file","").as_string();
         if (file_q_neutron_str.size()>0){
+            log->info("Reading neutron q's file...");
             std::fstream file_q_neutron(file_q_neutron_str, std::ios_base::in);
             float q_neutron_buf = 0.0;
             while (file_q_neutron >> q_neutron_buf){
                 qs_neutron.push_back(q_neutron_buf*fact);
             }
             file_q_neutron.close();
+            log->info("Finished reading neutron q's file. There are " + to_string(qs_neutron.size()) + " neutron q points for FF calculation.");
+        }else {
+            log->info("No neutron q's file provided. Generating q-range for FF calculation...");
+            log->info("First q=" + to_string(q_start) + ", last q=" + to_string(q_finish) +", q step=" + to_string(q_step));
+            for (int i=0; i<int((q_finish-q_start)/q_step); ++i) {
+                qs_neutron.push_back(q_start+q_step*i);
+            }
+            log->info("Neutron q points generated. There are " + to_string(qs_neutron.size()) + " q points.");
         }
 
         // Setup maps for the helpers getXray/NeutronStrength()
@@ -201,6 +255,7 @@ protected:
 
         // Calculate scattering strength for individual atoms
         // First for all atoms in the same way, next, taking water/ion into account
+        log->info("Precalculating atomic scattering strength of each atom...");
         for (int i=0; i<system.select_all().size(); ++i){
             // X-ray
             vector<float> xrayStrength_tmp(qs_xray.size(), 0.0);
@@ -254,6 +309,8 @@ protected:
             }
             neutronAtomStrength[particles_ion[i]] = neutronStrength_tmp;
         }
+
+        log->info("Initialization done. Starting the trajectory processing.");
     }
 
     void pre_process() override {
@@ -466,13 +523,12 @@ int main(int argc, char** argv){
         Trajectory_reader engine(options);
         auto task = new FF_compute(options);
         engine.add_task(task);
-        cout << "-------------------------------------------------------------" << endl;
-        cout << "  This is stand-alone Pteros analysis plugin 'FF_compute'" << endl;
-        cout << "-------------------------------------------------------------" << endl;
+        cout << "---------------------------------------------------------------------------------------------" << endl;
+        cout << " This a stand-alone analysis plugin for the scattering form factors calculation 'ff_compute' " << endl;
+        cout << "---------------------------------------------------------------------------------------------" << endl;
         if(!options.has("f") && !options.has("help")){
             cout << "Usage:" << endl;
-            cout << "\tpteros_FF_compute -f <files> <task options>" << endl;
-            cout << "\n\tFor specific task options use '-help task'" << endl;
+            cout << "\tff_compute -f <structure_file> <trajectories> <options>" << endl;
             cout << "\tFor trajectory processing options use '-help traj'" << endl;
             cout << "\tFor all available options use '-help all' or just '-help'" << endl;
             return 1;
@@ -481,8 +537,6 @@ int main(int argc, char** argv){
             string help = options("help","").as_string();
             if(help=="traj"){
                 cout << engine.help() << endl;
-            } else if(help=="task"){
-                cout << task->help() << endl;
             } else {
                 cout << task->help() << endl << endl;
                 cout << engine.help() << endl;

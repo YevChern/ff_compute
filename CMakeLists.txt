@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.1)
 
-project(ff_calc)
+project(ff_compute)
 SET(CMAKE_BUILD_TYPE Release)
 
 #Sets optmization in Release build
@@ -24,6 +24,6 @@ ENDIF()
 
 find_package(pteros REQUIRED)
 
-add_executable(ff_calc main.cpp FFMaps.cpp)
+add_executable(ff_compute main.cpp FFMaps.cpp)
 
-target_link_libraries(ff_calc PRIVATE pteros::pteros pteros::pteros_analysis)
+target_link_libraries(ff_compute PRIVATE pteros::pteros pteros::pteros_analysis)
