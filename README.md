@@ -10,7 +10,9 @@ This code depends on the [Pteros](<https://yesint.github.io/pteros/>) molecular 
 
 Once Pteros is installed, you can proceed to install the ```ff_compute``` program. First, create ```/source``` and ```/build``` directories somewhere nice. Next, ```cd``` into the ```/source``` directory and clone the source code of ```ff_compute``` to it with:
 
-```git clone https://github.com/YevChern/ff_compute . ```
+```
+git clone https://github.com/YevChern/ff_compute . 
+```
 
 Once you have the source code of ```ff_compute```, ```cd``` to the ```/build``` directory and compile ```ff_compute``` with:
 
@@ -27,12 +29,15 @@ Now you're ready to use ```ff_compute``` for the scattering form factors calcula
 
 To run ```ff_compute``` just type:
 
-```ff_compute -f some_structure.pdb some_trajectory.xtc <other_options>```
+```
+ff_compute -f some_structure.pdb some_trajectory.xtc <other_options>
+```
 
 You can see all the available options with ```-help```:
 
-``` ff_compute -help```
-
+```
+ff_compute -help
+```
 
 Options:
 
