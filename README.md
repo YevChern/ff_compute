@@ -14,9 +14,10 @@ Once Pteros is installed, you can proceed to install the ```ff_compute``` progra
 
 Once you have the source code of ```ff_compute```, ```cd``` to the ```/build``` directory and compile ```ff_compute``` with:
 
-```cmake ../source```
-
-```make -j```
+```
+cmake ../source
+make -j
+```
 
 If you encounter an error that CMake can not find Pteros, check if you sourced ```pterosrc``` file after Pteros installation.
 
