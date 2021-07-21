@@ -168,6 +168,12 @@ protected:
             file_ions.close();
             log->info("There are " + to_string(particles_ion.size()) + " ions in the system.");
         }
+        vector<bool> is_ion;
+        is_ion.reserve(system.select_all().size());
+        for (int i=0; i<system.select_all().size(); ++i) is_ion.push_back(false);
+        for (int i=0; i<particles_ion.size(); ++i){
+            is_ion[particles_ion[i]] = true;
+        }
 
         // Get charges
         string file_charges_str = options("charges","").as_string();
@@ -259,14 +265,20 @@ protected:
         for (int i=0; i<system.select_all().size(); ++i){
             // X-ray
             vector<float> xrayStrength_tmp(qs_xray.size(), 0.0);
-            for (int j=0; j<qs_xray.size(); ++j){
-                xrayStrength_tmp[j] = getXrayStrength(system.atom(i).name, qs_xray[j], aff_constants, charge[i]);
+            // Handle all non-ion atoms. For ions we just set AtomStrength to zero and assign later
+            if (!is_ion[i]){
+                for (int j=0; j<qs_xray.size(); ++j){
+                    xrayStrength_tmp[j] = getXrayStrength(system.atom(i).name, qs_xray[j], aff_constants, charge[i]);
+                }
             }
             xrayAtomStrength.push_back(xrayStrength_tmp);
             // Neutron
             vector<float> neutronStrength_tmp(d_parts.size(), 0.0);
-            for (int j=0; j<d_parts.size(); ++j){
-                neutronStrength_tmp[j] = getNeutronStrength(system.atom(i).name, neutronFFmap);
+            // Handle all non-ion atoms. For ions we just set AtomStrength to zero and assign later
+            if (!is_ion[i]){
+                for (int j=0; j<d_parts.size(); ++j){
+                    neutronStrength_tmp[j] = getNeutronStrength(system.atom(i).name, neutronFFmap);
+                }
             }
             neutronAtomStrength.push_back(neutronStrength_tmp);
         }
