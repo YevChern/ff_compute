@@ -26,4 +26,8 @@ find_package(pteros REQUIRED)
 
 add_executable(ff_compute main.cpp FFMaps.cpp)
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(ff_compute PUBLIC OpenMP::OpenMP_CXX)
+endif()
 target_link_libraries(ff_compute PRIVATE pteros::pteros pteros::pteros_analysis)

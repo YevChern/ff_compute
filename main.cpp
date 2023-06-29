@@ -65,14 +65,14 @@ double getWaterXrayStrength(std::string name, float q, std::map<char, vector<dou
         double fi = getXrayStrength("O", q, map) * (1.0 + alpha_O*exp(-q*q/(2*delta*delta)));
         return fi;
     } else {
-        throw pteros::Pteros_error("getWaterXrayStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
+        throw pteros::PterosError("getWaterXrayStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
     }
 }
 
 double getNeutronStrength(std::string name, std::map<char, double> map){
     std::map<char, double>::const_iterator neutronSL_itr = map.find(char(name[0]));
     if (neutronSL_itr==map.end())
-        throw pteros::Pteros_error("Warning: Atom type " + name + " not found in neutron atomic FF map!");
+        throw pteros::PterosError("Warning: Atom type " + name + " not found in neutron atomic FF map!");
 
     double fi = neutronSL_itr->second;
     return fi;
@@ -82,7 +82,7 @@ double getNeutronStrength(std::string name, std::map<char, double> map){
 double getIonNeutronStrength(std::string name, std::map<std::string, double> map){
     std::map<string, double>::const_iterator neutronSL_itr = map.find(name);
     if (neutronSL_itr==map.end())
-        throw pteros::Pteros_error("Warning: Atom type " + name + " not found in neutron atomic FF map!");
+        throw pteros::PterosError("Warning: Atom type " + name + " not found in neutron atomic FF map!");
 
     double fi = neutronSL_itr->second;
     return fi;
@@ -96,7 +96,7 @@ double getWaterNeutronStrength(std::string name, float deut, std::map<char, doub
         double fi = getNeutronStrength("O", map);
         return fi;
     } else {
-        throw pteros::Pteros_error("getWaterNeutronStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
+        throw pteros::PterosError("getWaterNeutronStrength got the 'name' != 'O' or 'H'! Probably your water ind file is wrong.");
     }
 }
 
@@ -153,7 +153,7 @@ protected:
         file_water.close();
 
         std::fstream file_origin(options("orig_ind").as_string(), std::ios_base::in);
-        if (options("orig_ind").as_string().size()==0) throw pteros::Pteros_error("Error: No file with indices for the bilayer COM provided!");
+        if (options("orig_ind").as_string().size()==0) throw pteros::PterosError("Error: No file with indices for the bilayer COM provided!");
         while (file_origin >> buf){
             particles_for_origin.push_back(buf);
         }
@@ -209,7 +209,7 @@ protected:
         float q_finish = options("q_finish", "1.0").as_float();
         float q_step = options("q_step", "0.01").as_float();
         if ((q_finish - q_start)<0.0 || q_step<0.0) {
-            throw pteros::Pteros_error("Invalid values for the q range generation!");
+            throw pteros::PterosError("Invalid values for the q range generation!");
         }
 
         string file_q_xray_str = options("q_xray_file","").as_string();
@@ -354,7 +354,7 @@ protected:
         }
     }
 
-    void process_frame(const Frame_info &info) override {
+    void process_frame(const FrameInfo &info) override {
         // Get B
         // X-ray
         for (int i=0; i<qs_xray.size(); ++i){
@@ -438,11 +438,11 @@ protected:
         log->info("Frame " + to_string(info.valid_frame));
     }
 
-    void post_process(const Frame_info &info) override {
+    void post_process(const FrameInfo &info) override {
 
     }
 
-    void collect_data(const std::vector<std::shared_ptr<Task_base>>& tasks, int n_frames) override {
+    void collect_data(const std::vector<std::shared_ptr<TaskBase>>& tasks, int n_frames) override {
         // Collect data and normalize
         vector<double> A_real_xray_out(qs_xray.size(), 0.0), A_complex_xray_out(qs_xray.size(), 0.0), A_sqr_xray_out(qs_xray.size(), 0.0),
                        B_real_xray_out(qs_xray.size(), 0.0), B_sqr_xray_out(qs_xray.size(), 0.0),
@@ -532,7 +532,7 @@ int main(int argc, char** argv){
     try {
         Options options;
         parse_command_line(argc,argv,options);
-        Trajectory_reader engine(options);
+        TrajectoryReader engine(options);
         auto task = new FF_compute(options);
         engine.add_task(task);
         cout << "---------------------------------------------------------------------------------------------" << endl;
